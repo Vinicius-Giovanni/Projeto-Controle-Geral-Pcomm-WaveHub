@@ -33,5 +33,6 @@ class RoutineS6CA:
 
         pcom.wait_ready()
         pcom.send_text('211200d')
+        pcom.wait_ready()
 
         print('Tela S6CA pronta para uso')

@@ -1,191 +1,125 @@
-import pandas as pd
 from pathlib import Path
+import pandas as pd
+
 
 class DataFrameManager:
 
     def load_csv(
-            self,
-            caminho: str | Path,
-            sep: str = ';',
-            encoding: str = 'utf-8',
-            columns: list[str] | None = None
-            ) -> pd.DataFrame:
-        
+        self,
+        caminho: str | Path,
+        sep: str = ";",
+        encoding: str = "utf-8",
+        columns: list[str] | None = None,
+    ) -> pd.DataFrame:
+
         path = Path(caminho)
 
         if not path.exists():
             return pd.DataFrame()
-        
-        csv_files = []
 
-        # Caso seja um arquivo único
+        files: list[Path] = []
+
+        # Arquivo único
         if path.is_file():
 
-            if path.suffix.lower() != '.csv':
+            if path.suffix.lower() not in [".csv", ".xlsx", ".xls"]:
                 return pd.DataFrame()
-            
-            csv_files.append(path)
 
-        # Caso seja uma pasta
+            files.append(path)
+
+        # Pasta
         elif path.is_dir():
 
-            csv_files = sorted(path.glob('*csv'))
+            files = sorted([
+                *path.glob("*.csv"),
+                *path.glob("*.xlsx"),
+                *path.glob("*.xls"),
+            ])
 
-            if not csv_files:
+            if not files:
                 return pd.DataFrame()
-            
+
         dataframes = []
 
         try:
 
-            for file in csv_files:
+            for file in files:
 
                 if file.stat().st_size == 0:
                     continue
 
-                df = pd.read_csv(
-                    file,
-                    sep=sep,
-                    encoding=encoding,
-                    usecols=columns,
-                    low_memory=False
-                )
+                suffix = file.suffix.lower()
+
+                if suffix == ".csv":
+
+                    df = pd.read_csv(
+                        file,
+                        sep=sep,
+                        encoding=encoding,
+                        usecols=columns,
+                        low_memory=False,
+                    )
+
+                else:
+
+                    df = pd.read_excel(
+                        file,
+                        usecols=columns,
+                    )
 
                 dataframes.append(df)
-            
+
             if not dataframes:
                 return pd.DataFrame()
-            
+
             return pd.concat(
                 dataframes,
-                ignore_index=True
+                ignore_index=True,
             )
-        
+
         except Exception as e:
             raise RuntimeError(
-                f'Erro ao carregar arquivos CSV: {e}'
+                f"Erro ao carregar arquivos: {e}"
             ) from e
 
+    def save_csv(
+        self,
+        caminho: str | Path,
+        df: pd.DataFrame,
+        encoding: str = "utf-8",
+        sep: str = ";",
+    ) -> None:
 
-    def save_csv(self,
-                       caminho: str | Path,
-                       df: pd.DataFrame, 
-                       encoding: str = "utf-8",
-                       sep = ";") -> None:
-        
-        if isinstance(caminho, str):
-            path = Path(caminho)
-        else:
-            path = caminho
-        
-        path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            df.to_csv(
-                path,
-                index=False,
-                sep=sep,
-                encoding=encoding
-            )
-        except Exception as e:
-            print(f'Erro ao ler o CSV: {e}')
-
-
-    def load_parquet(self, caminho: str | Path) -> pd.DataFrame:
-        
-        if isinstance(caminho, str):
-            path = Path(caminho)
-        else:
-            path = caminho
-
-        if not path.exists():
-            return pd.DataFrame()  # Retorna um DataFrame vazio se o caminho não existir
-        
-        if path.stat().st_size == 0:
-            return pd.DataFrame()  # Retorna um DataFrame vazio se o arquivo estiver vazio
-        
-        return pd.read_parquet(path).astype('string')
-    
-    def save_parquet(self, caminho: str | Path, df: pd.DataFrame, schema = None) -> None:
-        if isinstance(caminho, str):
-            path = Path(caminho)
-        else:
-            path = caminho
+        path = Path(caminho)
 
         path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            df.to_parquet(
-                path,
-                index=False,
-                engine='pyarrow',
-                compression='zstd',
-                schema=schema
-            )
-        except Exception as e:
-            raise
-
-    def load_txt(
-            self,
-            caminho: str | Path,
-            sep: str = ';',
-            encoding: str = 'utf-8',
-            columns: list[str] | None = None
-    ) -> pd.DataFrame:
-        
-        if isinstance(caminho, str):
-            path = Path(caminho)
-        else:
-            path = caminho
-
-        if not path.exists():
-            return pd.DataFrame()
-        
-        arquivos_txt = []
-
-        # Caso seja um arquivo único
-        if path.is_file():
-
-            if path.suffix and path.suffix.lower() != ".txt":
-                return pd.DataFrame()
-            
-            arquivos_txt.append(path)
-        
-        # Caso seja uma pasta
-        elif path.is_dir():
-
-            arquivos_txt = list(path.glob("*.txt"))
-
-            if not arquivos_txt:
-                return pd.DataFrame()
-            
-        dataframes = []
 
         try:
-            for arquivo in arquivos_txt:
 
-                if arquivo.stat().st_size == 0:
-                    continue
-                
-                df = pd.read_csv(
-                    arquivo,
+            suffix = path.suffix.lower()
+
+            if suffix == ".csv":
+
+                df.to_csv(
+                    path,
+                    index=False,
                     sep=sep,
                     encoding=encoding,
-                    dtype=str,
-                    usecols=columns
                 )
 
-                dataframes.append(df)
+            elif suffix in [".xlsx", ".xls"]:
 
-            if not dataframes:
-                return pd.DataFrame()
-            
-            return pd.concat(
-                dataframes,
-                ignore_index=True
-            )
-        
+                df.to_excel(
+                    path,
+                    index=False,
+                )
+
+            else:
+                raise ValueError(
+                    "Formato não suportado. Utilize .csv, .xlsx ou .xls"
+                )
+
         except Exception as e:
-            raise
-
-    def load_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        DataFrame = pd.DataFrame(df)
-        return DataFrame
+            raise RuntimeError(
+                f"Erro ao salvar arquivo: {e}"
+            ) from e
